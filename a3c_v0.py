@@ -246,9 +246,10 @@ def main():
     batch_size = 32
 
     tot_r = []
+    r_t = []
 
     for e in range(episodes):
-        #r = 0
+
         ri = []
         state = env.reset()
         state = state.reshape(1, state.size)
@@ -269,17 +270,16 @@ def main():
             agent.train_target()
 
             state = new_state
-            #r += reward
+
             ri.append(reward)
 
             if done:
-                #avg_r = (r/t)
+
                 avg_ri = np.mean(ri)
+                tot_r.append(avg_ri)
 
                 print('Episode {} of {},avg_ri{}'.format(e, episodes, avg_ri))
                 break
-
-        tot_r.append(avg_ri)
 
     if rend_env == 'y':
         env.close()
@@ -289,7 +289,7 @@ def main():
 
     plt.figure()
     plt.plot(list(range(1, episodes + 1)), tot_r)
-    plt.plot(list(range(0, 200)), ri)
+    #plt.plot(list(range(0, 200)), ri)
     plt.xlabel('Episodes')
     plt.ylabel('Reward')
     plt.title('AC Pendulum {} Episodes'.format(episodes))
@@ -299,7 +299,7 @@ def main():
 
     plt.show()
 
-    return tot_r, ri, episodes
+    return tot_r, r_t, episodes
 
 
 if __name__ == "__main__":
