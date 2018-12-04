@@ -246,7 +246,6 @@ def main():
     batch_size = 32
 
     tot_r = []
-    r_t = []
 
     for e in range(episodes):
 
@@ -299,11 +298,11 @@ def main():
 
     plt.show()
 
-    return tot_r, r_t, episodes
+    return tot_r, episodes
 
 
 if __name__ == "__main__":
-    total_reward, reward_time, epi = main()
+    total_reward, epi = main()
 
 
 ''' convolutional layers
