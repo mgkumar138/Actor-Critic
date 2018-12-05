@@ -8,7 +8,6 @@ import keras.backend as K
 import tensorflow as tf
 import random
 from collections import deque
-from keras.utils.np_utils import to_categorical
 from matplotlib import pyplot as plt
 
 # https://towardsdatascience.com/reinforcement-learning-w-keras-openai-actor-critic-models-f084612cfd69
@@ -36,10 +35,11 @@ class A3CAgent:
         self.sess = sess  # ?
         self.lr = 0.00025
         self.eps = 1.0
-        self.eps_decay = 0.95
+        self.eps_decay = 0.995
+        self.eps_min = 0.01
         self.gamma = 0.99
         self.tau = 0.125  # change from DQN
-        self.memory = deque(maxlen=100000)  # episodic memory to pull from to train model
+        self.memory = deque(maxlen=1000000)  # episodic memory to pull from to train model
 
         self.action_size = self.select_action_size()
         self.state_size = self.select_state_size()
@@ -118,7 +118,7 @@ class A3CAgent:
         h1 = Dense(24, activation='relu')(state_input)
         h2 = Dense(48, activation='relu')(h1)
         h3 = Dense(24, activation='relu')(h2)
-        policy_output = Dense(self.action_size, activation='relu', name='policy_output')(h3)
+        policy_output = Dense(self.action_size, activation='linear', name='policy_output')(h3)
 
         model = Model(inputs=state_input, outputs=policy_output)
         model.compile(loss='mse', optimizer=Adam(lr=self.lr))
@@ -138,7 +138,7 @@ class A3CAgent:
         merged = Add()([state_h2, action_h1])  # combine both nets
         merged_h1 = Dense(24, activation='relu')(merged)
 
-        value_output = Dense(1, activation='relu')(merged_h1)  # Output = 1, Q(s,a)
+        value_output = Dense(1, activation='linear')(merged_h1)  # Output = 1, Q(s,a)
 
         model = Model(inputs=[state_input, action_input], outputs=value_output)
         model.compile(loss='mse', optimizer=Adam(lr=self.lr))
@@ -163,13 +163,15 @@ class A3CAgent:
     def _train_critic(self, samples):  # compute value loss given current state & action taken by actor
         for sample in samples:
             state, action, reward, new_state, done = sample  # Check what is sample
-            if not done:
+            if done:
+                target = reward
+            else:
                 # given action from actor, what is the reward according to critic?
                 target_actor_action = self.target_actor_model.predict(new_state)  # find action by actor
-                reward += self.gamma * self.target_critic_model.predict([new_state, target_actor_action])[0][0]
+                target = reward + self.gamma * self.target_critic_model.predict([new_state, target_actor_action])[0][0]
 
             # given curr state and action, train and change critic network weights
-            self.critic_model.fit(x={'state_input': state, 'action_input': action}, y=reward, verbose=0)  # train critic based on value loss: (R-V(s))**2
+            self.critic_model.fit(x={'state_input': state, 'action_input': action}, y=target, verbose=0)  # train critic based on value loss: (R-V(s))**2
 
     def _train_actor(self, samples):  # compute policy loss using policy from actor & Q value from critic
         for sample in samples:
@@ -196,7 +198,7 @@ class A3CAgent:
         self._update_actor_target()
         self._update_critic_target()
 
-    def _update_actor_target(self):  # why not just self.target_critic_model.set_weights(self.actor_model_weights) ?
+    def _update_actor_target(self):
         actor_model_weights = self.actor_model.get_weights()
         actor_target_weights = self.target_actor_model.get_weights()
 
@@ -218,9 +220,10 @@ class A3CAgent:
 
     def act(self, state):
         self.eps *= self.eps_decay
+        self.eps = max(self.eps_min, self.eps)
         if np.random.random() < self.eps:
             return self.env.action_space.sample()
-        return self.actor_model.predict(state)[0]
+        return self.actor_model.predict(state)[0]  # if more than 1 action, use argmax to select action with most prob
 
         # ============= #
         #  Save models  #
@@ -271,6 +274,7 @@ def main():
             state = new_state
 
             ri.append(reward)
+            print('Action = {}, Reward @ frame = {}'.format(action, reward))
 
             if done:
 
@@ -294,7 +298,7 @@ def main():
     plt.title('AC Pendulum {} Episodes'.format(episodes))
 
     if save_plot == 'y':
-        plt.savefig('Pendulum_{}eps.png'.format(epi))
+        plt.savefig('Pendulum_{}eps.png'.format(episodes))
 
     plt.show()
 
