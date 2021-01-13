@@ -82,7 +82,7 @@ class ACagent:
         entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logit, labels=tf.nn.softmax(logit))
 
         # combine losses to train network tgt
-        comb_loss = tf.reduce_mean((0.5 * value_loss + policy_loss + 0.01 * entropy))
+        comb_loss = tf.reduce_mean((0.5 * value_loss + policy_loss - 0.01 * entropy))
 
         return policy_loss, value_loss, comb_loss
 
